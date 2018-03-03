@@ -5,8 +5,8 @@ use tokenizer::filter::Filter;
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    position: i32,
-    token: String,
+    pub position: u32,
+    pub token: String,
 }
 
 pub struct Tokenizer<'a, T>
@@ -14,7 +14,7 @@ where
     T: Iterator<Item = &'a str>,
 {
     filters: Vec<filter::TokenFilter>,
-    position: i32,
+    position: u32,
     input: T,
 }
 
