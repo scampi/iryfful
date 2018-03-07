@@ -1,11 +1,36 @@
 use std::str::SplitWhitespace;
 use super::Tokenizer;
+use super::Token;
+use super::filter::TokenFilter;
+use super::BaseTokenizer;
 
-pub struct WhiteSpaceTokenizer;
+pub struct WhiteSpaceTokenizer<'a> {
+    base: BaseTokenizer<'a, SplitWhitespace<'a>>,
+}
 
-impl WhiteSpaceTokenizer {
-    pub fn new(input_field: &str) -> Tokenizer<SplitWhitespace> {
-        Tokenizer::new(input_field.split_whitespace())
+impl<'a> WhiteSpaceTokenizer<'a> {
+    pub fn new() -> WhiteSpaceTokenizer<'a> {
+        WhiteSpaceTokenizer {
+            base: BaseTokenizer {
+                filters: Vec::new(),
+                position: 0,
+                input: "".split_whitespace(),
+            },
+        }
+    }
+}
+
+impl<'a> Tokenizer<'a> for WhiteSpaceTokenizer<'a> {
+    fn add_filter(&mut self, filter: TokenFilter) {
+        self.base.add_filter(filter);
+    }
+
+    fn next(&mut self) -> Option<Token> {
+        self.base.next()
+    }
+
+    fn set(&mut self, input: &'a str) {
+        self.base.input = input.split_whitespace();
     }
 }
 
@@ -19,7 +44,9 @@ mod tests {
     #[test]
     fn splits_on_whitespace() {
         let data = " aaa\nbbb   ccc    ";
-        let mut white_space_tokenizer = WhiteSpaceTokenizer::new(data);
+        let mut white_space_tokenizer = WhiteSpaceTokenizer::new();
+
+        white_space_tokenizer.set(data);
 
         let next_token = white_space_tokenizer.next();
         expect!(next_token).to(be_some().value(Token {
@@ -46,7 +73,9 @@ mod tests {
     #[test]
     fn to_lowercase_filter() {
         let data = "aaa BBB cCc";
-        let mut white_space_tokenizer = WhiteSpaceTokenizer::new(data);
+        let mut white_space_tokenizer = WhiteSpaceTokenizer::new();
+
+        white_space_tokenizer.set(data);
 
         white_space_tokenizer.add_filter(TokenFilter::LowerCase);
 

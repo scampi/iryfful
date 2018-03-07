@@ -9,7 +9,17 @@ pub struct Token {
     pub token: String,
 }
 
-pub struct Tokenizer<'a, T>
+pub trait Tokenizer<'a> {
+    fn add_filter(&mut self, filter: filter::TokenFilter);
+
+    fn next(&mut self) -> Option<Token>;
+
+    fn set(&mut self, _: &'a str) {
+        panic!("set method must be implemented");
+    }
+}
+
+struct BaseTokenizer<'a, T>
 where
     T: Iterator<Item = &'a str>,
 {
@@ -18,23 +28,15 @@ where
     input: T,
 }
 
-impl<'a, T> Tokenizer<'a, T>
+impl<'a, T> Tokenizer<'a> for BaseTokenizer<'a, T>
 where
     T: Iterator<Item = &'a str>,
 {
-    pub fn new(iter: T) -> Tokenizer<'a, T> {
-        Tokenizer {
-            filters: Vec::new(),
-            position: 0,
-            input: iter,
-        }
-    }
-
-    pub fn add_filter(&mut self, filter: filter::TokenFilter) -> () {
+    fn add_filter(&mut self, filter: filter::TokenFilter) {
         self.filters.push(filter);
     }
 
-    pub fn next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Option<Token> {
         match self.input.next() {
             Some(part) => {
                 let mut token = Token {

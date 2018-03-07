@@ -17,9 +17,9 @@ impl Index {
         }
     }
 
-    pub fn add_doc<'a, T>(&mut self, mut tokenizer: Tokenizer<'a, T>)
+    pub fn add_doc<'a, T>(&mut self, mut tokenizer: T)
     where
-        T: Iterator<Item = &'a str>,
+        T: Tokenizer<'a>,
     {
         loop {
             let token = match tokenizer.next() {
@@ -44,13 +44,16 @@ mod tests {
     #[test]
     fn should_create_some_postings_list() {
         let data = "aaa bbb aaa";
-        let white_space_tokenizer = WhiteSpaceTokenizer::new(data);
+        let mut white_space_tokenizer = WhiteSpaceTokenizer::new();
+
+        white_space_tokenizer.set(data);
 
         let mut index = Index::new();
         index.add_doc(white_space_tokenizer);
 
         let data = "bbb";
-        let white_space_tokenizer = WhiteSpaceTokenizer::new(data);
+        let mut white_space_tokenizer = WhiteSpaceTokenizer::new();
+        white_space_tokenizer.set(data);
         index.add_doc(white_space_tokenizer);
 
         assert_eq!(index.postings.len(), 2);
