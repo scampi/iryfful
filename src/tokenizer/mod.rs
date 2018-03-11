@@ -1,51 +1,46 @@
 pub mod filter;
 pub mod white_space_tokenizer;
 
-use tokenizer::filter::Filter;
-
 #[derive(Debug, PartialEq)]
 pub struct Token {
     pub position: u32,
     pub token: String,
 }
 
-pub trait Tokenizer<'a> {
+pub trait Tokenizer<'a>
+where
+    <Self as Tokenizer<'a>>::Iter: Iterator<Item = &'a str>,
+{
+    type Iter;
+
     fn add_filter(&mut self, filter: filter::TokenFilter);
 
-    fn next(&mut self) -> Option<Token>;
-
-    fn set(&mut self, _: &'a str) {
-        panic!("set method must be implemented");
-    }
+    fn tokenize(&'a self, input: &'a str) -> InputIterator<'a, Self::Iter>;
 }
 
-struct BaseTokenizer<'a, T>
+pub struct InputIterator<'a, T: 'a>
 where
     T: Iterator<Item = &'a str>,
 {
-    filters: Vec<filter::TokenFilter>,
     position: u32,
-    input: T,
+    iter: T,
+    //apply_filters: Box<Fn(&mut Token) -> () + 'a>,
 }
 
-impl<'a, T> Tokenizer<'a> for BaseTokenizer<'a, T>
+impl<'a, T> Iterator for InputIterator<'a, T>
 where
     T: Iterator<Item = &'a str>,
 {
-    fn add_filter(&mut self, filter: filter::TokenFilter) {
-        self.filters.push(filter);
-    }
+    type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        match self.input.next() {
+        match self.iter.next() {
             Some(part) => {
                 let mut token = Token {
                     token: String::from(part),
                     position: self.position,
                 };
-                for filter in self.filters.iter() {
-                    filter.apply(&mut token);
-                }
+                //(self.apply_filters)(&mut token);
                 self.position += 1;
                 Some(token)
             }
