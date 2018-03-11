@@ -1,6 +1,8 @@
 pub mod filter;
 pub mod white_space_tokenizer;
 
+use tokenizer::filter::Filter;
+
 #[derive(Debug, PartialEq)]
 pub struct Token {
     pub position: u32,
@@ -15,7 +17,7 @@ where
 
     fn add_filter(&mut self, filter: filter::TokenFilter);
 
-    fn tokenize(&'a self, input: &'a str) -> InputIterator<'a, Self::Iter>;
+    fn tokenize(&self, input: &'a str) -> InputIterator<'a, Self::Iter>;
 }
 
 pub struct InputIterator<'a, T: 'a>
@@ -24,7 +26,7 @@ where
 {
     position: u32,
     iter: T,
-    //apply_filters: Box<Fn(&mut Token) -> () + 'a>,
+    filters: Vec<filter::TokenFilter>,
 }
 
 impl<'a, T> Iterator for InputIterator<'a, T>
@@ -40,7 +42,9 @@ where
                     token: String::from(part),
                     position: self.position,
                 };
-                //(self.apply_filters)(&mut token);
+                for filter in self.filters.iter() {
+                    filter.apply(&mut token);
+                }
                 self.position += 1;
                 Some(token)
             }

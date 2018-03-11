@@ -4,6 +4,7 @@ pub trait Filter {
     fn apply(&self, token: &mut Token);
 }
 
+#[derive(Clone)]
 pub enum TokenFilter {
     LowerCase,
 }
