@@ -1,5 +1,5 @@
 pub mod filter;
-pub mod white_space_tokenizer;
+pub mod whitespace_tokenizer;
 
 use tokenizer::filter::Filter;
 
