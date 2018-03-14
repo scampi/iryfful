@@ -9,46 +9,25 @@ pub struct Token {
     pub token: String,
 }
 
-pub trait Tokenizer<'a>
-where
-    <Self as Tokenizer<'a>>::Iter: Iterator<Item = &'a str>,
-{
-    type Iter;
+pub trait Tokenizer {
+    fn get_filters(&self) -> &Vec<filter::TokenFilter>;
+
+    fn splits<'a>(&self, input: &'a str) -> Box<Iterator<Item = &'a str> + 'a>;
 
     fn add_filter(&mut self, filter: filter::TokenFilter);
 
-    fn tokenize(&self, input: &'a str) -> InputIterator<'a, Self::Iter>;
-}
-
-pub struct InputIterator<'a, T: 'a>
-where
-    T: Iterator<Item = &'a str>,
-{
-    position: u32,
-    iter: T,
-    filters: Vec<filter::TokenFilter>,
-}
-
-impl<'a, T> Iterator for InputIterator<'a, T>
-where
-    T: Iterator<Item = &'a str>,
-{
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Token> {
-        match self.iter.next() {
-            Some(part) => {
-                let mut token = Token {
-                    token: String::from(part),
-                    position: self.position,
-                };
-                for filter in self.filters.iter() {
-                    filter.apply(&mut token);
-                }
-                self.position += 1;
-                Some(token)
+    fn tokenize<'a>(&'a self, input: &'a str) -> Box<Iterator<Item = Token> + 'a> {
+        let mut pos = 0;
+        Box::new(self.splits(input).map(move |part| {
+            let mut token = Token {
+                token: String::from(part),
+                position: pos,
+            };
+            for filter in self.get_filters().iter() {
+                filter.apply(&mut token);
             }
-            None => None,
-        }
+            pos += 1;
+            token
+        }))
     }
 }

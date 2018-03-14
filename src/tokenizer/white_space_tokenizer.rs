@@ -1,30 +1,26 @@
-use std::str::SplitWhitespace;
 use super::Tokenizer;
-use super::InputIterator;
 use super::filter::TokenFilter;
 
 pub struct WhiteSpaceTokenizer {
     filters: Vec<TokenFilter>,
 }
 
-impl<'a> Tokenizer<'a> for WhiteSpaceTokenizer {
-    type Iter = SplitWhitespace<'a>;
-
+impl Tokenizer for WhiteSpaceTokenizer {
     fn add_filter(&mut self, filter: TokenFilter) {
         self.filters.push(filter);
     }
 
-    fn tokenize(&self, input: &'a str) -> InputIterator<'a, Self::Iter> {
-        InputIterator {
-            position: 0,
-            iter: input.split_whitespace(),
-            filters: self.filters.clone(),
-        }
+    fn get_filters(&self) -> &Vec<TokenFilter> {
+        &self.filters
+    }
+
+    fn splits<'a>(&self, input: &'a str) -> Box<Iterator<Item = &'a str> + 'a> {
+        Box::new(input.split_whitespace())
     }
 }
 
 impl WhiteSpaceTokenizer {
-    fn new() -> WhiteSpaceTokenizer {
+    pub fn new() -> WhiteSpaceTokenizer {
         WhiteSpaceTokenizer {
             filters: Vec::new(),
         }
