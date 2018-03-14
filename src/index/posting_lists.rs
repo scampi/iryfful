@@ -33,7 +33,7 @@ impl Posting {
         self.docs.len()
     }
 
-    pub fn add_token(&mut self, doc_id: u32, position: u32) -> () {
+    pub fn add_token(&mut self, doc_id: u32, position: u32) {
         // no doc in this posting
         if self.docs.is_empty() {
             self.docs
