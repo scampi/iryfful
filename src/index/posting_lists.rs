@@ -59,6 +59,10 @@ impl Posting {
         doc_posting.freqs += 1;
         self.positions.push(position);
     }
+
+    pub fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = u32> + 'a> {
+        Box::new(self.docs.iter().map(|doc| doc.doc_id))
+    }
 }
 
 #[cfg(test)]
@@ -92,5 +96,24 @@ mod tests {
                 _ => panic!(format!("got unexpected doc with id={}", doc.doc_id)),
             }
         }
+    }
+
+    #[test]
+    fn test_iter_docs() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 2);
+
+        let mut iter = posting.iter_docs();
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(1));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(3));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_none());
     }
 }
