@@ -4,3 +4,4 @@ extern crate expectest;
 
 pub mod tokenizer;
 pub mod index;
+pub mod search;

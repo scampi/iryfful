@@ -40,6 +40,12 @@ impl<'a> Index<'a> {
         }
         self.doc_id += 1;
     }
+
+    pub fn get_postings_list(&self, field: &str) -> Result<&posting_lists::Posting, String> {
+        self.postings
+            .get(field)
+            .ok_or_else(|| format!("No postings for field={}", field))
+    }
 }
 
 #[cfg(test)]
