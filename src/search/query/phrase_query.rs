@@ -1,0 +1,237 @@
+use super::Query;
+use search::IndexSearcher;
+use index::posting_lists::DocIdAndPosItem;
+
+pub struct PhraseQuery<'a> {
+    field: &'a str,
+    terms: Vec<&'a str>,
+    slop: u8,
+}
+
+impl<'a> PhraseQuery<'a> {
+    pub fn new(field: &'a str, terms: Vec<&'a str>) -> PhraseQuery<'a> {
+        PhraseQuery {
+            field,
+            terms,
+            slop: 1,
+        }
+    }
+
+    pub fn set_slop(&mut self, slop: u8) {
+        self.slop = slop;
+    }
+}
+
+impl<'q, 'i> Query<'q, 'i> for PhraseQuery<'q> {
+    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = u32> + 'i> {
+        let postings = self.terms
+            .iter()
+            .map(|term| {
+                Box::new(
+                    index_search
+                        .get_index()
+                        .get_postings_list(&format!("{}:{}", self.field, term))
+                        .unwrap()
+                        .iter_docs_pos(),
+                )
+            })
+            .collect();
+        let mut matches = Vec::new();
+        {
+            let mut positions = Vec::with_capacity(self.terms.len());
+            let on_match = |doc_id: u32, terms: &[DocIdAndPosItem]| {
+                let term1 = &terms[0];
+                let terms_rest = &terms[1..];
+                let fit = |positions: &Vec<u32>, posx: &u32| {
+                    for pos in positions.iter() {
+                        if pos != posx && (*pos as i32 - *posx as i32).abs() as u8 <= self.slop {
+                            return true;
+                        }
+                    }
+                    false
+                };
+                let past_all_positions = |positions: &Vec<u32>, posx: &u32| {
+                    for pos in positions.iter() {
+                        if posx <= pos {
+                            return false;
+                        }
+                    }
+                    true
+                };
+
+                // Algorithm mostly taken from https://nlp.stanford.edu/IR-book/html/htmledition/positional-indexes-1.html
+                for pos1 in term1.positions.iter() {
+                    positions.clear();
+                    positions.push(*pos1);
+
+                    // in case there is only one term, there is no need to have another go at the
+                    // positions to see if any valid combination still exists
+                    let mut checked_all = terms_rest.len() == 1;
+                    // because the match of terms can be done in any order, we may need to iterate
+                    // the terms several times
+                    loop {
+                        let candidates_count = positions.len();
+                        for termx in terms_rest.iter() {
+                            for posx in termx.positions.iter() {
+                                if fit(&positions, posx) {
+                                    positions.push(*posx);
+                                    // TODO: should not break here so that all occurring phrases
+                                    // are found.
+                                    // matching phrases should be added to a list that could be
+                                    // used for scoring.
+                                    break;
+                                } else if past_all_positions(&positions, posx) {
+                                    break;
+                                }
+                            }
+                            if positions.len() == terms.len() {
+                                // match
+                                matches.push(doc_id);
+                                // TODO: a single match of the term is enough until the fix to
+                                // gather all occurring phrases is done
+                                return;
+                            }
+                        }
+                        if checked_all && candidates_count == positions.len() {
+                            // no more matches in any order
+                            break;
+                        }
+                        checked_all = true;
+                    }
+                }
+            };
+            index_search.step_on_matching_doc(postings, on_match);
+        }
+
+        Box::new(matches.into_iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
+    use expectest::prelude::*;
+    use super::*;
+    use index::document::Document;
+    use index::Index;
+    use search::IndexSearcher;
+
+    #[test]
+    fn test_two_terms() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        // match at the start
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ccc aaa");
+        index.add_doc(doc);
+
+        // match at the end
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ccc aaa bbb");
+        index.add_doc(doc);
+
+        // order of the terms is not important
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ccc bbb aaa");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ccc bbb");
+        index.add_doc(doc);
+
+        let index_search = &IndexSearcher::new(&index);
+
+        let pq = PhraseQuery::new("field1", vec!["aaa", "bbb"]);
+        let mut iter = pq.execute(index_search);
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(0));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(1));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(2));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_none());
+    }
+
+    #[test]
+    fn test_three_terms() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ccc");
+        index.add_doc(doc);
+
+        // order of the terms is not important
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb aaa ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa aaa bbb ccc");
+        index.add_doc(doc);
+
+        let index_search = &IndexSearcher::new(&index);
+
+        let pq = PhraseQuery::new("field1", vec!["aaa", "bbb", "ccc"]);
+        let mut iter = pq.execute(index_search);
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(0));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(1));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(2));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_none());
+    }
+
+    #[test]
+    fn test_slop() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ccc bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc aaa");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc ddd aaa");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let index_search = &IndexSearcher::new(&index);
+
+        let mut pq = PhraseQuery::new("field1", vec!["aaa", "bbb"]);
+        pq.set_slop(2);
+
+        let mut iter = pq.execute(index_search);
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(0));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(1));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_some().value(3));
+
+        let next_doc = iter.next();
+        expect!(next_doc).to(be_none());
+    }
+}

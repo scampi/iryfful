@@ -1,5 +1,6 @@
 use super::Query;
-use index::Index;
+use search::IndexSearcher;
+use index::posting_lists::DocItem;
 
 pub struct TermQuery<'a> {
     field: &'a str,
@@ -13,12 +14,14 @@ impl<'a> TermQuery<'a> {
 }
 
 impl<'q, 'i> Query<'q, 'i> for TermQuery<'q> {
-    fn execute(&'q self, index: &'i Index) -> Box<Iterator<Item = u32> + 'i> {
+    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = u32> + 'i> {
         Box::new(
-            index
+            index_search
+                .get_index()
                 .get_postings_list(&format!("{}:{}", self.field, self.term))
                 .unwrap()
-                .iter_docs(),
+                .iter_docs()
+                .map(|doc| doc.get_doc_id()),
         )
     }
 }
@@ -29,6 +32,8 @@ mod tests {
     use expectest::prelude::*;
     use super::*;
     use index::document::Document;
+    use index::Index;
+    use search::IndexSearcher;
 
     #[test]
     fn test_hits() {
@@ -47,8 +52,10 @@ mod tests {
         doc.add_field("field1", "aaa");
         index.add_doc(doc);
 
+        let index_search = &IndexSearcher::new(&index);
+
         let tq = TermQuery::new("field1", "aaa");
-        let mut iter = tq.execute(&index);
+        let mut iter = tq.execute(index_search);
 
         let next_doc = iter.next();
         expect!(next_doc).to(be_some().value(0));

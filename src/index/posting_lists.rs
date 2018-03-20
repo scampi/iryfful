@@ -21,6 +21,57 @@ impl DocPosting {
     }
 }
 
+pub trait DocItem {
+    fn get_doc_id(&self) -> u32;
+}
+
+#[derive(Debug)]
+pub struct DocIdItem {
+    doc_id: u32,
+}
+
+impl DocItem for DocIdItem {
+    fn get_doc_id(&self) -> u32 {
+        self.doc_id
+    }
+}
+
+#[derive(Debug)]
+pub struct DocIdAndPosItem<'a> {
+    doc_id: u32,
+    pub positions: &'a [u32],
+}
+
+impl<'a> DocItem for DocIdAndPosItem<'a> {
+    fn get_doc_id(&self) -> u32 {
+        self.doc_id
+    }
+}
+
+pub trait DocIterator<'a>: Iterator + 'a {
+    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)>;
+}
+
+impl<'a, T: 'a> DocIterator<'a> for Iterator<Item = T> + 'a
+where
+    T: DocItem,
+{
+    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)> {
+        loop {
+            match self.next() {
+                None => return None,
+                Some(item) => {
+                    if item.get_doc_id() == doc_id {
+                        return Some((true, item));
+                    } else if item.get_doc_id() > doc_id {
+                        return Some((false, item));
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Posting {
     pub fn new() -> Posting {
         Posting {
@@ -60,8 +111,19 @@ impl Posting {
         self.positions.push(position);
     }
 
-    pub fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = u32> + 'a> {
-        Box::new(self.docs.iter().map(|doc| doc.doc_id))
+    pub fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a> {
+        Box::new(self.docs.iter().map(|doc| DocIdItem { doc_id: doc.doc_id }))
+    }
+
+    pub fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a> {
+        Box::new(self.docs.iter().map(move |doc| {
+            let start = doc.positions_offset as usize;
+            let end = (doc.positions_offset + doc.freqs) as usize;
+            DocIdAndPosItem {
+                doc_id: doc.doc_id,
+                positions: &self.positions[start..end],
+            }
+        }))
     }
 }
 
@@ -107,13 +169,87 @@ mod tests {
 
         let mut iter = posting.iter_docs();
 
-        let next_doc = iter.next();
-        expect!(next_doc).to(be_some().value(1));
+        let next = iter.next();
+        assert_eq!(next.unwrap().doc_id, 1);
 
-        let next_doc = iter.next();
-        expect!(next_doc).to(be_some().value(3));
+        let next = iter.next();
+        assert_eq!(next.unwrap().doc_id, 3);
 
-        let next_doc = iter.next();
-        expect!(next_doc).to(be_none());
+        let next = iter.next();
+        assert_eq!(next.is_none(), true);
+    }
+
+    #[test]
+    fn test_iter_docs_pos() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 2);
+
+        let mut iter = posting.iter_docs_pos();
+
+        let next = iter.next().unwrap();
+        assert_eq!(next.doc_id, 1);
+        assert_eq!(next.positions.len(), 2);
+        assert_eq!(next.positions.get(0), Some(&42));
+        assert_eq!(next.positions.get(1), Some(&45));
+        assert_eq!(next.positions.get(2).is_none(), true);
+
+        let next = iter.next().unwrap();
+        assert_eq!(next.doc_id, 3);
+        assert_eq!(next.positions.len(), 1);
+        assert_eq!(next.positions.get(0), Some(&2));
+        assert_eq!(next.positions.get(1).is_none(), true);
+
+        let next = iter.next();
+        assert_eq!(next.is_none(), true);
+    }
+
+    #[test]
+    fn test_advance_doc() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 1);
+        posting.add_token(3, 2);
+        posting.add_token(5, 3);
+        posting.add_token(5, 33);
+        posting.add_token(8, 6);
+        posting.add_token(12, 4);
+
+        let mut iter = posting.iter_docs();
+
+        let next = iter.advance(3).unwrap();
+        assert_eq!(next.0, true);
+        assert_eq!(next.1.doc_id, 3);
+
+        let next = iter.advance(12).unwrap();
+        assert_eq!(next.0, true);
+        assert_eq!(next.1.doc_id, 12);
+
+        let next = iter.advance(15);
+        assert_eq!(next.is_none(), true);
+    }
+
+    #[test]
+    fn test_advance_doc_missing() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 1);
+        posting.add_token(3, 2);
+        posting.add_token(5, 3);
+        posting.add_token(5, 33);
+        posting.add_token(8, 6);
+        posting.add_token(12, 4);
+
+        let mut iter = posting.iter_docs();
+
+        let next = iter.advance(4).unwrap();
+        assert_eq!(next.0, false);
+        assert_eq!(next.1.doc_id, 5);
+
+        let next = iter.advance(15);
+        assert_eq!(next.is_none(), true);
     }
 }

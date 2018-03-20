@@ -43,19 +43,19 @@ mod tests {
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("aaa"),
-            position: 0,
-        }));
-
-        let next_token = iter.next();
-        expect!(next_token).to(be_some().value(Token {
-            token: String::from("bbb"),
             position: 1,
         }));
 
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
-            token: String::from("ccc"),
+            token: String::from("bbb"),
             position: 2,
+        }));
+
+        let next_token = iter.next();
+        expect!(next_token).to(be_some().value(Token {
+            token: String::from("ccc"),
+            position: 3,
         }));
 
         let next_token = iter.next();
@@ -71,13 +71,13 @@ mod tests {
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("aaa"),
-            position: 0,
+            position: 1,
         }));
 
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("bbb"),
-            position: 1,
+            position: 2,
         }));
 
         let next_token = iter.next();
@@ -88,13 +88,13 @@ mod tests {
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("ccc"),
-            position: 0,
+            position: 1,
         }));
 
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("ddd"),
-            position: 1,
+            position: 2,
         }));
 
         let next_token = iter.next();
@@ -112,19 +112,19 @@ mod tests {
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
             token: String::from("aaa"),
-            position: 0,
-        }));
-
-        let next_token = iter.next();
-        expect!(next_token).to(be_some().value(Token {
-            token: String::from("bbb"),
             position: 1,
         }));
 
         let next_token = iter.next();
         expect!(next_token).to(be_some().value(Token {
-            token: String::from("ccc"),
+            token: String::from("bbb"),
             position: 2,
+        }));
+
+        let next_token = iter.next();
+        expect!(next_token).to(be_some().value(Token {
+            token: String::from("ccc"),
+            position: 3,
         }));
 
         let next_token = iter.next();

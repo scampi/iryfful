@@ -17,7 +17,8 @@ pub trait Tokenizer {
     fn add_filter(&mut self, filter: filter::TokenFilter);
 
     fn tokenize<'a>(&'a self, input: &'a str) -> Box<Iterator<Item = Token> + 'a> {
-        let mut pos = 0;
+        // start the position at 1 to ease out of bounds positions
+        let mut pos = 1;
         Box::new(self.splits(input).map(move |part| {
             let mut token = Token {
                 token: String::from(part),
