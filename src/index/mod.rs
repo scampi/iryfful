@@ -50,8 +50,8 @@ impl<'a> Index<'a> {
 
 #[cfg(test)]
 mod tests {
-    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
     use super::*;
+    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
 
     /// Should index 2 docs over two postings list
     #[test]

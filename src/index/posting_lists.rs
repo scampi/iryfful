@@ -48,30 +48,6 @@ impl<'a> DocItem for DocIdAndPosItem<'a> {
     }
 }
 
-pub trait DocIterator<'a>: Iterator + 'a {
-    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)>;
-}
-
-impl<'a, T: 'a> DocIterator<'a> for Iterator<Item = T> + 'a
-where
-    T: DocItem,
-{
-    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)> {
-        loop {
-            match self.next() {
-                None => return None,
-                Some(item) => {
-                    if item.get_doc_id() == doc_id {
-                        return Some((true, item));
-                    } else if item.get_doc_id() > doc_id {
-                        return Some((false, item));
-                    }
-                }
-            }
-        }
-    }
-}
-
 impl Posting {
     pub fn new() -> Posting {
         Posting {
@@ -129,8 +105,8 @@ impl Posting {
 
 #[cfg(test)]
 mod tests {
-    use expectest::prelude::*;
     use super::*;
+    use expectest::prelude::*;
 
     #[test]
     fn should_add_tokens() {
@@ -202,54 +178,6 @@ mod tests {
         assert_eq!(next.positions.get(1).is_none(), true);
 
         let next = iter.next();
-        assert_eq!(next.is_none(), true);
-    }
-
-    #[test]
-    fn test_advance_doc() {
-        let mut posting = Posting::new();
-        posting.add_token(1, 42);
-        posting.add_token(1, 45);
-        posting.add_token(3, 1);
-        posting.add_token(3, 2);
-        posting.add_token(5, 3);
-        posting.add_token(5, 33);
-        posting.add_token(8, 6);
-        posting.add_token(12, 4);
-
-        let mut iter = posting.iter_docs();
-
-        let next = iter.advance(3).unwrap();
-        assert_eq!(next.0, true);
-        assert_eq!(next.1.doc_id, 3);
-
-        let next = iter.advance(12).unwrap();
-        assert_eq!(next.0, true);
-        assert_eq!(next.1.doc_id, 12);
-
-        let next = iter.advance(15);
-        assert_eq!(next.is_none(), true);
-    }
-
-    #[test]
-    fn test_advance_doc_missing() {
-        let mut posting = Posting::new();
-        posting.add_token(1, 42);
-        posting.add_token(1, 45);
-        posting.add_token(3, 1);
-        posting.add_token(3, 2);
-        posting.add_token(5, 3);
-        posting.add_token(5, 33);
-        posting.add_token(8, 6);
-        posting.add_token(12, 4);
-
-        let mut iter = posting.iter_docs();
-
-        let next = iter.advance(4).unwrap();
-        assert_eq!(next.0, false);
-        assert_eq!(next.1.doc_id, 5);
-
-        let next = iter.advance(15);
         assert_eq!(next.is_none(), true);
     }
 }

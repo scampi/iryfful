@@ -1,13 +1,32 @@
 use index::Index;
 use index::posting_lists::DocItem;
+use std::mem;
+use std::u32::MAX;
 
 pub mod query;
+
+#[derive(Debug, PartialEq)]
+pub struct SearchHit {
+    doc_id: u32,
+}
+
+impl SearchHit {
+    pub fn new(doc_id: u32) -> SearchHit {
+        SearchHit { doc_id }
+    }
+}
+
+impl DocItem for SearchHit {
+    fn get_doc_id(&self) -> u32 {
+        self.doc_id
+    }
+}
 
 pub struct IndexSearcher<'a> {
     index: &'a Index<'a>,
 }
 
-impl<'a> IndexSearcher<'a> {
+impl<'q, 'a: 'q> IndexSearcher<'a> {
     pub fn new(index: &'a Index<'a>) -> IndexSearcher<'a> {
         IndexSearcher { index }
     }
@@ -16,36 +35,105 @@ impl<'a> IndexSearcher<'a> {
         self.index
     }
 
-    pub fn search<'q, T>(&'a self, query: &'q T) -> Box<Iterator<Item = u32> + 'a>
+    pub fn search<T>(&'a self, query: &'q T) -> Box<Iterator<Item = SearchHit> + 'q>
     where
-        T: query::Query<'q, 'a> + 'q,
+        T: query::Query<'q, 'a>,
     {
-        Box::new(query.execute(&self))
+        Box::new(query.execute(self))
     }
 
-    pub fn step_on_matching_doc<I, T, F>(&self, mut postings: Vec<Box<I>>, mut f: F)
+    fn step_on_matching_doc<I, T>(&self, postings: Vec<Box<I>>) -> MatchingDocIterator<I, T>
     where
         I: Iterator<Item = T>,
         T: DocItem,
-        F: FnMut(u32, &[T]),
     {
-        let mut current_docs = Vec::with_capacity(postings.len());
+        MatchingDocIterator { postings }
+    }
+}
 
-        loop {
-            // get the current docs
-            current_docs.clear();
-            for posting in postings.iter_mut() {
-                match posting.next() {
-                    None => return,
-                    Some(doc) => current_docs.push(doc),
+struct MatchingDocIterator<I, T>
+where
+    I: Iterator<Item = T>,
+    T: DocItem,
+{
+    postings: Vec<Box<I>>,
+}
+
+impl<I, T> Iterator for MatchingDocIterator<I, T>
+where
+    I: Iterator<Item = T>,
+    T: DocItem,
+{
+    type Item = (u32, Vec<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut current_docs = Vec::with_capacity(self.postings.len());
+        let mut max_doc_id = 0;
+        let mut min_doc_id = MAX;
+
+        // init the postings iteration
+        for posting in self.postings.iter_mut() {
+            match posting.next() {
+                None => return None,
+                Some(item) => {
+                    if item.get_doc_id() > max_doc_id {
+                        max_doc_id = item.get_doc_id();
+                    } else if item.get_doc_id() < min_doc_id {
+                        min_doc_id = item.get_doc_id();
+                    }
+                    current_docs.push(item);
                 }
             }
-            // check if the docs have the same ids
-            let max_doc_id = current_docs.iter().map(|doc| doc.get_doc_id()).max();
-            let min_doc_id = current_docs.iter().map(|doc| doc.get_doc_id()).min();
-            if max_doc_id == min_doc_id {
-                // apply the operation on success
-                f(max_doc_id.unwrap(), &current_docs[..]);
+        }
+
+        if min_doc_id == max_doc_id {
+            return Some((max_doc_id, current_docs));
+        }
+
+        // advance on the postings lists until a match is found
+        'matching_loop: loop {
+            for (i, posting) in self.postings.iter_mut().enumerate() {
+                if current_docs[i].get_doc_id() == max_doc_id {
+                    continue;
+                }
+                match posting.advance(max_doc_id) {
+                    None => return None,
+                    Some((true, doc)) => {
+                        let _ = mem::replace(&mut current_docs[i], doc);
+                    }
+                    Some((false, doc)) => {
+                        max_doc_id = doc.get_doc_id();
+                        continue 'matching_loop;
+                    }
+                }
+            }
+            // it's a match!
+            return Some((max_doc_id, current_docs));
+        }
+    }
+}
+
+trait DocIterator: Iterator {
+    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)>;
+}
+
+impl<I, T> DocIterator for I
+where
+    I: Iterator<Item = T>,
+    T: DocItem,
+{
+    fn advance(&mut self, doc_id: u32) -> Option<(bool, <Self as Iterator>::Item)> {
+        loop {
+            match self.next() {
+                None => return None,
+                Some(item) => {
+                    if item.get_doc_id() == doc_id {
+                        return Some((true, item));
+                    }
+                    if item.get_doc_id() > doc_id {
+                        return Some((false, item));
+                    }
+                }
             }
         }
     }
@@ -53,11 +141,59 @@ impl<'a> IndexSearcher<'a> {
 
 #[cfg(test)]
 mod tests {
-    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
     use super::*;
     use index::document::Document;
-    use index::posting_lists::DocIdItem;
     use index::posting_lists::DocIdAndPosItem;
+    use index::posting_lists::Posting;
+    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
+
+    #[test]
+    fn test_advance_doc() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 1);
+        posting.add_token(3, 2);
+        posting.add_token(5, 3);
+        posting.add_token(5, 33);
+        posting.add_token(8, 6);
+        posting.add_token(12, 4);
+
+        let mut iter = posting.iter_docs();
+
+        let next = iter.advance(3).unwrap();
+        assert_eq!(next.0, true);
+        assert_eq!(next.1.get_doc_id(), 3);
+
+        let next = iter.advance(12).unwrap();
+        assert_eq!(next.0, true);
+        assert_eq!(next.1.get_doc_id(), 12);
+
+        let next = iter.advance(15);
+        assert_eq!(next.is_none(), true);
+    }
+
+    #[test]
+    fn test_advance_doc_missing() {
+        let mut posting = Posting::new();
+        posting.add_token(1, 42);
+        posting.add_token(1, 45);
+        posting.add_token(3, 1);
+        posting.add_token(3, 2);
+        posting.add_token(5, 3);
+        posting.add_token(5, 33);
+        posting.add_token(8, 6);
+        posting.add_token(12, 4);
+
+        let mut iter = posting.iter_docs();
+
+        let next = iter.advance(4).unwrap();
+        assert_eq!(next.0, false);
+        assert_eq!(next.1.get_doc_id(), 5);
+
+        let next = iter.advance(15);
+        assert_eq!(next.is_none(), true);
+    }
 
     #[test]
     fn test_step_on_matching_doc_with_iter_docs() {
@@ -90,15 +226,13 @@ mod tests {
             })
             .collect();
         let searcher = IndexSearcher::new(&index);
-        let mut matches = Vec::new();
-        {
-            let on_match = |doc_id: u32, _: &[DocIdItem]| matches.push(doc_id);
-            searcher.step_on_matching_doc(postings, on_match);
-        }
+        let mut iter = searcher
+            .step_on_matching_doc(postings)
+            .map(|(doc_id, _)| doc_id);
 
-        assert_eq!(matches.len(), 2);
-        assert_eq!(matches.get(0).unwrap(), &0);
-        assert_eq!(matches.get(1).unwrap(), &2);
+        assert_eq!(iter.next().unwrap(), 0);
+        assert_eq!(iter.next().unwrap(), 2);
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
@@ -132,25 +266,64 @@ mod tests {
             })
             .collect();
         let searcher = IndexSearcher::new(&index);
-        let mut matches = Vec::new();
-        {
-            let on_match = |doc_id: u32, docs: &[DocIdAndPosItem]| {
-                let mut diff = 0;
-                for item in docs.iter() {
-                    if diff == 0 {
-                        diff = item.positions[0];
-                    } else {
-                        diff = item.positions[0] - diff;
-                    }
+        let on_match = |(doc_id, docs): (u32, Vec<DocIdAndPosItem>)| {
+            let mut diff = 0;
+            for item in docs {
+                if diff == 0 {
+                    diff = item.positions[0];
+                } else {
+                    diff = item.positions[0] - diff;
                 }
-                if diff == 1 {
-                    matches.push(doc_id);
-                }
-            };
-            searcher.step_on_matching_doc(postings, on_match);
-        }
+            }
+            return if diff == 1 { Some(doc_id) } else { None };
+        };
+        let mut iter = searcher.step_on_matching_doc(postings).filter_map(on_match);
 
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches.get(0).unwrap(), &2);
+        assert_eq!(iter.next().unwrap(), 2);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_step_on_matching_doc() {
+        // create index
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        // get the postings lists for aaa and bbb
+        let postings = ["aaa", "bbb"]
+            .iter()
+            .map(|term| {
+                Box::new(
+                    index
+                        .get_postings_list(&format!("field1:{}", term))
+                        .unwrap()
+                        .iter_docs(),
+                )
+            })
+            .collect();
+        let searcher = IndexSearcher::new(&index);
+        let mut iter = searcher
+            .step_on_matching_doc(postings)
+            .map(|(doc_id, _)| doc_id);
+
+        assert_eq!(iter.next().unwrap(), 1);
+        assert_eq!(iter.next().unwrap(), 3);
+        assert_eq!(iter.next(), None);
     }
 }

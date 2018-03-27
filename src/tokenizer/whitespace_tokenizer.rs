@@ -29,10 +29,10 @@ impl WhiteSpaceTokenizer {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use expectest::prelude::*;
     use tokenizer::Token;
     use tokenizer::filter::*;
-    use super::*;
 
     #[test]
     fn splits_on_whitespace() {

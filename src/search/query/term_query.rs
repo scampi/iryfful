@@ -1,6 +1,7 @@
 use super::Query;
-use search::IndexSearcher;
 use index::posting_lists::DocItem;
+use search::IndexSearcher;
+use search::SearchHit;
 
 pub struct TermQuery<'a> {
     field: &'a str,
@@ -13,27 +14,28 @@ impl<'a> TermQuery<'a> {
     }
 }
 
-impl<'q, 'i> Query<'q, 'i> for TermQuery<'q> {
-    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = u32> + 'i> {
+impl<'q, 'i: 'q> Query<'q, 'i> for TermQuery<'q> {
+    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = SearchHit> + 'q> {
         Box::new(
             index_search
                 .get_index()
                 .get_postings_list(&format!("{}:{}", self.field, self.term))
                 .unwrap()
                 .iter_docs()
-                .map(|doc| doc.get_doc_id()),
+                .map(|doc| SearchHit::new(doc.get_doc_id())),
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
-    use expectest::prelude::*;
     use super::*;
-    use index::document::Document;
+    use expectest::prelude::*;
     use index::Index;
+    use index::document::Document;
     use search::IndexSearcher;
+    use search::SearchHit;
+    use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
 
     #[test]
     fn test_hits() {
@@ -58,10 +60,10 @@ mod tests {
         let mut iter = tq.execute(index_search);
 
         let next_doc = iter.next();
-        expect!(next_doc).to(be_some().value(0));
+        expect!(next_doc).to(be_some().value(SearchHit::new(0)));
 
         let next_doc = iter.next();
-        expect!(next_doc).to(be_some().value(2));
+        expect!(next_doc).to(be_some().value(SearchHit::new(2)));
 
         let next_doc = iter.next();
         expect!(next_doc).to(be_none());
