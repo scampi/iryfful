@@ -37,7 +37,7 @@ impl<'q, 'a: 'q> IndexSearcher<'a> {
 
     pub fn search<T>(&'a self, query: &'q T) -> Box<Iterator<Item = SearchHit> + 'q>
     where
-        T: query::Query<'q, 'a>,
+        T: query::Query,
     {
         Box::new(query.execute(self))
     }

@@ -23,8 +23,11 @@ impl<'a> PhraseQuery<'a> {
     }
 }
 
-impl<'q, 'i: 'q> Query<'q, 'i> for PhraseQuery<'q> {
-    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = SearchHit> + 'q> {
+impl<'pq> Query for PhraseQuery<'pq> {
+    fn execute<'q, 'i: 'q>(
+        &'q self,
+        index_search: &'i IndexSearcher,
+    ) -> Box<Iterator<Item = SearchHit> + 'q> {
         let postings = self.terms
             .iter()
             .map(|term| {

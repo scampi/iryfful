@@ -14,8 +14,11 @@ impl<'a> TermQuery<'a> {
     }
 }
 
-impl<'q, 'i: 'q> Query<'q, 'i> for TermQuery<'q> {
-    fn execute(&'q self, index_search: &'i IndexSearcher) -> Box<Iterator<Item = SearchHit> + 'q> {
+impl<'tq> Query for TermQuery<'tq> {
+    fn execute<'q, 'i: 'q>(
+        &'q self,
+        index_search: &'i IndexSearcher,
+    ) -> Box<Iterator<Item = SearchHit> + 'q> {
         Box::new(
             index_search
                 .get_index()
