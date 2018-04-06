@@ -42,12 +42,12 @@ impl<'q, 'a: 'q> IndexSearcher<'a> {
         Box::new(query.execute(self))
     }
 
-    fn step_on_matching_doc<I, T>(&self, postings: Vec<Box<I>>) -> MatchingDocIterator<I, T>
+    fn step_on_matching_doc<I, T>(&self, docs: Vec<Box<I>>) -> MatchingDocIterator<I, T>
     where
         I: Iterator<Item = T>,
         T: DocItem,
     {
-        MatchingDocIterator { postings }
+        MatchingDocIterator { docs }
     }
 }
 
@@ -56,7 +56,7 @@ where
     I: Iterator<Item = T>,
     T: DocItem,
 {
-    postings: Vec<Box<I>>,
+    docs: Vec<Box<I>>,
 }
 
 impl<I, T> Iterator for MatchingDocIterator<I, T>
@@ -67,13 +67,13 @@ where
     type Item = (u32, Vec<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut current_docs = Vec::with_capacity(self.postings.len());
+        let mut current_docs = Vec::with_capacity(self.docs.len());
         let mut max_doc_id = 0;
         let mut min_doc_id = MAX;
 
-        // init the postings iteration
-        for posting in self.postings.iter_mut() {
-            match posting.next() {
+        // init the docs iteration
+        for doc_iterator in self.docs.iter_mut() {
+            match doc_iterator.next() {
                 None => return None,
                 Some(item) => {
                     if item.get_doc_id() > max_doc_id {
@@ -90,20 +90,20 @@ where
             return Some((max_doc_id, current_docs));
         }
 
-        // advance on the postings lists until a match is found
+        // advance on the docs lists until a match is found
         'matching_loop: loop {
-            for (i, posting) in self.postings.iter_mut().enumerate() {
+            for (i, doc_iterator) in self.docs.iter_mut().enumerate() {
                 if current_docs[i].get_doc_id() == max_doc_id {
                     continue;
                 }
-                match posting.advance(max_doc_id) {
+                match doc_iterator.advance(max_doc_id) {
                     None => return None,
-                    Some((true, doc)) => {
-                        let _ = mem::replace(&mut current_docs[i], doc);
-                    }
-                    Some((false, doc)) => {
+                    Some((found, doc)) => {
                         max_doc_id = doc.get_doc_id();
-                        continue 'matching_loop;
+                        let _ = mem::replace(&mut current_docs[i], doc);
+                        if !found {
+                            continue 'matching_loop;
+                        }
                     }
                 }
             }
@@ -323,6 +323,58 @@ mod tests {
             .map(|(doc_id, _)| doc_id);
 
         assert_eq!(iter.next().unwrap(), 1);
+        assert_eq!(iter.next().unwrap(), 3);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_step_on_matching_doc_advance() {
+        // create index
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb");
+        index.add_doc(doc);
+
+        // get the postings lists for aaa and bbb
+        let postings = ["aaa", "bbb"]
+            .iter()
+            .map(|term| {
+                Box::new(
+                    index
+                        .get_postings_list(&format!("field1:{}", term))
+                        .unwrap()
+                        .iter_docs(),
+                )
+            })
+            .collect();
+        let searcher = IndexSearcher::new(&index);
+        let mut iter = searcher
+            .step_on_matching_doc(postings)
+            .map(|(doc_id, _)| doc_id);
+
+        assert_eq!(iter.next().unwrap(), 2);
         assert_eq!(iter.next().unwrap(), 3);
         assert_eq!(iter.next(), None);
     }
