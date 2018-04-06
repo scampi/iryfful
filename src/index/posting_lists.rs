@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 #[derive(Debug)]
 pub struct Posting {
     docs: Vec<DocPosting>,
@@ -21,7 +23,7 @@ impl DocPosting {
     }
 }
 
-pub trait DocItem {
+pub trait DocItem: Debug {
     fn get_doc_id(&self) -> u32;
 }
 

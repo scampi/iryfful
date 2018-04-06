@@ -3,6 +3,7 @@ use index::posting_lists::DocIdAndPosItem;
 use search::IndexSearcher;
 use search::SearchHit;
 
+#[derive(Debug)]
 pub struct PhraseQuery<'a> {
     field: &'a str,
     terms: Vec<&'a str>,

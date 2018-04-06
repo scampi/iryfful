@@ -3,6 +3,7 @@ use index::posting_lists::DocItem;
 use search::IndexSearcher;
 use search::SearchHit;
 
+#[derive(Debug)]
 pub struct TermQuery<'a> {
     field: &'a str,
     term: &'a str,

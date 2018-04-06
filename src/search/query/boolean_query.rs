@@ -2,7 +2,7 @@ use super::Query;
 use super::SearchHit;
 use search::IndexSearcher;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BooleanQuery<'bq> {
     must: Vec<Box<Query + 'bq>>,
 }
@@ -41,6 +41,7 @@ mod tests {
     use index::document::Document;
     use search::IndexSearcher;
     use search::SearchHit;
+    use search::query::phrase_query::PhraseQuery;
     use search::query::term_query::TermQuery;
     use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
 
@@ -74,6 +75,153 @@ mod tests {
 
         let next_doc = iter.next();
         assert_eq!(next_doc, Some(SearchHit::new(2)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, None);
+    }
+
+    #[test]
+    fn test_must_phrase_queries() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ddd ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ddd eee ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ddd bbb ccc");
+        index.add_doc(doc);
+
+        let index_search = IndexSearcher::new(&index);
+
+        let pq1 = PhraseQuery::new("field1", vec!["aaa", "bbb"]);
+        let mut pq2 = PhraseQuery::new("field1", vec!["bbb", "ccc"]);
+        pq2.set_slop(2);
+        let mut bq: BooleanQuery = Default::default();
+        bq.must(pq1);
+        bq.must(pq2);
+
+        let mut iter = bq.execute(&index_search);
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(2)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(3)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, None);
+    }
+
+    #[test]
+    fn test_must_phrase_and_term_queries() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ddd ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ddd eee ccc");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa ddd bbb ccc");
+        index.add_doc(doc);
+
+        let index_search = IndexSearcher::new(&index);
+
+        let mut bq: BooleanQuery = Default::default();
+        bq.must(PhraseQuery::new("field1", vec!["aaa", "bbb"]));
+        bq.must(TermQuery::new("field1", "ccc"));
+
+        let mut iter = bq.execute(&index_search);
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(2)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(3)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(4)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, None);
+    }
+
+    #[test]
+    fn test_nested_must() {
+        let mut index = Index::new();
+        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "aaa bbb ddd");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "ddd aaa bbb ccc eee");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "bbb ccc eee");
+        index.add_doc(doc);
+
+        let mut doc = Document::new();
+        doc.add_field("field1", "eee ccc bbb aaa ddd");
+        index.add_doc(doc);
+
+        let index_search = IndexSearcher::new(&index);
+
+        let mut bq1: BooleanQuery = Default::default();
+        bq1.must(PhraseQuery::new("field1", vec!["aaa", "bbb"]));
+        bq1.must(TermQuery::new("field1", "ddd"));
+
+        let mut bq2: BooleanQuery = Default::default();
+        bq2.must(PhraseQuery::new("field1", vec!["bbb", "ccc"]));
+        bq2.must(TermQuery::new("field1", "eee"));
+
+        let mut bq: BooleanQuery = Default::default();
+        bq.must(bq1);
+        bq.must(bq2);
+
+        let mut iter = bq.execute(&index_search);
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(1)));
+
+        let next_doc = iter.next();
+        assert_eq!(next_doc, Some(SearchHit::new(3)));
 
         let next_doc = iter.next();
         assert_eq!(next_doc, None);
