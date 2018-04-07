@@ -63,25 +63,17 @@ impl Posting {
     }
 
     pub fn add_token(&mut self, doc_id: u32, position: u32) {
-        // no doc in this posting
-        if self.docs.is_empty() {
+        let create_doc_posting = match self.docs.last() {
+            None => true,
+            Some(doc_posting) if doc_posting.doc_id != doc_id => true,
+            Some(_) => false,
+        };
+
+        if create_doc_posting {
             self.docs
                 .push(DocPosting::new(doc_id, self.positions.len() as u32));
         }
 
-        // check if the last doc of the posting is the same as the one passed in argument
-        let mut is_new_doc = false;
-        if let Some(doc_posting) = self.docs.last() {
-            if doc_posting.doc_id != doc_id {
-                is_new_doc = true;
-            }
-        }
-        if is_new_doc {
-            self.docs
-                .push(DocPosting::new(doc_id, self.positions.len() as u32));
-        }
-
-        // update the positing list with the passed token
         let doc_posting = self.docs
             .last_mut()
             .expect("could not get the last doc posting");
