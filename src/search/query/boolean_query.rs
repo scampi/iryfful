@@ -48,19 +48,21 @@ mod tests {
     #[test]
     fn test_must_term_queries() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = IndexSearcher::new(&index);
 
@@ -83,31 +85,33 @@ mod tests {
     #[test]
     fn test_must_phrase_queries() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ddd ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ddd eee ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ddd bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = IndexSearcher::new(&index);
 
@@ -133,31 +137,33 @@ mod tests {
     #[test]
     fn test_must_phrase_and_term_queries() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ddd ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ddd eee ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ddd bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = IndexSearcher::new(&index);
 
@@ -183,23 +189,25 @@ mod tests {
     #[test]
     fn test_nested_must() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ddd");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "ddd aaa bbb ccc eee");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc eee");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "eee ccc bbb aaa ddd");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = IndexSearcher::new(&index);
 

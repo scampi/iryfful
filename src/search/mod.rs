@@ -199,19 +199,21 @@ mod tests {
     fn test_step_on_matching_doc_with_iter_docs() {
         // create index
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // get the postings lists for aaa and ccc
         let postings = ["aaa", "ccc"]
@@ -239,19 +241,21 @@ mod tests {
     fn test_step_on_matching_doc_with_iter_docs_pos() {
         // create index
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // get the postings lists for aaa and ccc
         let postings = ["aaa", "ccc"]
@@ -287,23 +291,25 @@ mod tests {
     fn test_step_on_matching_doc() {
         // create index
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // get the postings lists for aaa and bbb
         let postings = ["aaa", "bbb"]
@@ -331,31 +337,33 @@ mod tests {
     fn test_step_on_matching_doc_advance() {
         // create index
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // get the postings lists for aaa and bbb
         let postings = ["aaa", "bbb"]

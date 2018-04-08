@@ -125,26 +125,28 @@ mod tests {
     #[test]
     fn test_two_terms() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         // match at the start
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // match at the end
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // order of the terms is not important
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc bbb aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = &IndexSearcher::new(&index);
 
@@ -167,20 +169,22 @@ mod tests {
     #[test]
     fn test_three_terms() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         // order of the terms is not important
         let mut doc = Document::new();
         doc.add_field("field1", "bbb aaa ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa aaa bbb ccc");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = &IndexSearcher::new(&index);
 
@@ -203,23 +207,25 @@ mod tests {
     #[test]
     fn test_slop() {
         let mut index = Index::new();
-        index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa ccc bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "bbb ccc ddd aaa");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let mut doc = Document::new();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc);
+        index.add_doc(doc).unwrap();
 
         let index_search = &IndexSearcher::new(&index);
 
