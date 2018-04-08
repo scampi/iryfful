@@ -24,7 +24,6 @@ impl<'tq> Query for TermQuery<'tq> {
             index_search
                 .get_index()
                 .get_postings_list(&format!("{}:{}", self.field, self.term))
-                .unwrap()
                 .iter_docs()
                 .map(|doc| SearchHit::new(doc.get_doc_id())),
         )

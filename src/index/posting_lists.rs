@@ -1,7 +1,49 @@
 use std::fmt::Debug;
+use std::iter;
+
+pub trait Posting {
+    fn len(&self) -> usize;
+
+    fn add_token(&mut self, doc_id: u32, position: u32);
+
+    fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a>;
+
+    fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a>;
+}
+
+pub fn new() -> PostingImpl {
+    PostingImpl {
+        docs: Vec::new(),
+        positions: Vec::new(),
+    }
+}
+
+static EMPTY: EmptyPosting = EmptyPosting {};
+
+pub fn empty() -> &'static EmptyPosting {
+    &EMPTY
+}
+
+pub struct EmptyPosting;
+
+impl Posting for EmptyPosting {
+    fn len(&self) -> usize {
+        0
+    }
+
+    fn add_token(&mut self, _doc_id: u32, _position: u32) {}
+
+    fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a> {
+        Box::new(iter::empty::<DocIdItem>())
+    }
+
+    fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a> {
+        Box::new(iter::empty::<DocIdAndPosItem>())
+    }
+}
 
 #[derive(Debug)]
-pub struct Posting {
+pub struct PostingImpl {
     docs: Vec<DocPosting>,
     positions: Vec<u32>,
 }
@@ -50,19 +92,12 @@ impl<'a> DocItem for DocIdAndPosItem<'a> {
     }
 }
 
-impl Posting {
-    pub fn new() -> Posting {
-        Posting {
-            docs: Vec::new(),
-            positions: Vec::new(),
-        }
-    }
-
-    pub fn len(&self) -> usize {
+impl Posting for PostingImpl {
+    fn len(&self) -> usize {
         self.docs.len()
     }
 
-    pub fn add_token(&mut self, doc_id: u32, position: u32) {
+    fn add_token(&mut self, doc_id: u32, position: u32) {
         let create_doc_posting = match self.docs.last() {
             None => true,
             Some(doc_posting) if doc_posting.doc_id != doc_id => true,
@@ -81,11 +116,11 @@ impl Posting {
         self.positions.push(position);
     }
 
-    pub fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a> {
+    fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a> {
         Box::new(self.docs.iter().map(|doc| DocIdItem { doc_id: doc.doc_id }))
     }
 
-    pub fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a> {
+    fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a> {
         Box::new(self.docs.iter().map(move |doc| {
             let start = doc.positions_offset as usize;
             let end = (doc.positions_offset + doc.freqs) as usize;
@@ -104,7 +139,7 @@ mod tests {
 
     #[test]
     fn should_add_tokens() {
-        let mut posting = Posting::new();
+        let mut posting = new();
         posting.add_token(1, 42);
         posting.add_token(1, 45);
         posting.add_token(3, 2);
@@ -132,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_iter_docs() {
-        let mut posting = Posting::new();
+        let mut posting = new();
         posting.add_token(1, 42);
         posting.add_token(1, 45);
         posting.add_token(3, 2);
@@ -151,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_iter_docs_pos() {
-        let mut posting = Posting::new();
+        let mut posting = new();
         posting.add_token(1, 42);
         posting.add_token(1, 45);
         posting.add_token(3, 2);

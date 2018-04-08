@@ -143,13 +143,14 @@ where
 mod tests {
     use super::*;
     use index::document::Document;
+    use index::posting_lists;
     use index::posting_lists::DocIdAndPosItem;
     use index::posting_lists::Posting;
     use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
 
     #[test]
     fn test_advance_doc() {
-        let mut posting = Posting::new();
+        let mut posting = posting_lists::new();
         posting.add_token(1, 42);
         posting.add_token(1, 45);
         posting.add_token(3, 1);
@@ -175,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_advance_doc_missing() {
-        let mut posting = Posting::new();
+        let mut posting = posting_lists::new();
         posting.add_token(1, 42);
         posting.add_token(1, 45);
         posting.add_token(3, 1);
@@ -222,7 +223,6 @@ mod tests {
                 Box::new(
                     index
                         .get_postings_list(&format!("field1:{}", term))
-                        .unwrap()
                         .iter_docs(),
                 )
             })
@@ -264,7 +264,6 @@ mod tests {
                 Box::new(
                     index
                         .get_postings_list(&format!("field1:{}", term))
-                        .unwrap()
                         .iter_docs_pos(),
                 )
             })
@@ -318,7 +317,6 @@ mod tests {
                 Box::new(
                     index
                         .get_postings_list(&format!("field1:{}", term))
-                        .unwrap()
                         .iter_docs(),
                 )
             })
@@ -372,7 +370,6 @@ mod tests {
                 Box::new(
                     index
                         .get_postings_list(&format!("field1:{}", term))
-                        .unwrap()
                         .iter_docs(),
                 )
             })

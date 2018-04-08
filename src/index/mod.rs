@@ -1,3 +1,4 @@
+use index::posting_lists::Posting;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use tokenizer::Tokenizer;
@@ -10,7 +11,7 @@ type IndexingResult<T> = Result<T, error::IndexingError>;
 
 pub struct Index<'a> {
     doc_id: u32,
-    postings: HashMap<String, posting_lists::Posting>,
+    postings: HashMap<String, posting_lists::PostingImpl>,
     mappings: HashMap<String, Box<Tokenizer + 'a>>,
 }
 
@@ -49,7 +50,7 @@ impl<'a> Index<'a> {
             for token in tokenizer.tokenize(field.value) {
                 let posting = self.postings
                     .entry(format!("{}:{}", field.field, token.token))
-                    .or_insert(posting_lists::Posting::new());
+                    .or_insert(posting_lists::new());
                 posting.add_token(self.doc_id, token.position);
             }
         }
@@ -57,10 +58,12 @@ impl<'a> Index<'a> {
         Ok(())
     }
 
-    pub fn get_postings_list(&self, field: &str) -> Result<&posting_lists::Posting, String> {
-        self.postings
-            .get(field)
-            .ok_or_else(|| format!("No postings for field={}", field))
+    pub fn get_postings_list(&self, field: &str) -> Box<&Posting> {
+        if !self.postings.contains_key(field) {
+            Box::new(posting_lists::empty())
+        } else {
+            Box::new(self.postings.get(field).unwrap())
+        }
     }
 }
 
@@ -68,6 +71,20 @@ impl<'a> Index<'a> {
 mod tests {
     use super::*;
     use tokenizer::whitespace_tokenizer::WhiteSpaceTokenizer;
+
+    #[test]
+    fn should_return_empty_posting_on_unknown_field() {
+        let index = Index::new();
+
+        let posting = index.get_postings_list("field1");
+        assert_eq!(posting.len(), 0);
+
+        let mut iter = posting.iter_docs();
+        assert!(iter.next().is_none());
+
+        let mut iter = posting.iter_docs_pos();
+        assert!(iter.next().is_none());
+    }
 
     #[test]
     fn should_fail_when_setting_two_times_a_mapping_field() {

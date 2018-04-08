@@ -36,7 +36,6 @@ impl<'pq> Query for PhraseQuery<'pq> {
                     index_search
                         .get_index()
                         .get_postings_list(&format!("{}:{}", self.field, term))
-                        .unwrap()
                         .iter_docs_pos(),
                 )
             })
