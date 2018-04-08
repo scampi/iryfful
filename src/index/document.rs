@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Document<'a> {
     fields: HashMap<&'a str, Vec<&'a str>>,
 }
 
 impl<'a> Document<'a> {
-    pub fn new() -> Document<'a> {
-        Document {
-            fields: HashMap::new(),
-        }
+    pub fn clear(&mut self) {
+        self.fields.clear();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
     }
 
     pub fn len(&self) -> usize {
@@ -17,7 +19,10 @@ impl<'a> Document<'a> {
     }
 
     pub fn add_field(&mut self, field: &'a str, value: &'a str) {
-        self.fields.entry(field).or_insert(Vec::new()).push(value);
+        self.fields
+            .entry(field)
+            .or_insert_with(Vec::new)
+            .push(value);
     }
 
     pub fn fields(&'a self) -> Box<Iterator<Item = Content<'a>> + 'a> {
@@ -47,7 +52,7 @@ mod tests {
 
     #[test]
     fn should_create_multi_valued_document() {
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa");
         doc.add_field("field1", "bbb");
         doc.add_field("field2", "ccc");

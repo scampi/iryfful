@@ -42,22 +42,22 @@ mod tests {
 
     #[test]
     fn test_hits() {
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa bbb aaa");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         let index_search = &IndexSearcher::new(&index);
 

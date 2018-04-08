@@ -2,6 +2,8 @@ use std::fmt::Debug;
 use std::iter;
 
 pub trait Posting {
+    fn is_empty(&self) -> bool;
+
     fn len(&self) -> usize;
 
     fn add_token(&mut self, doc_id: u32, position: u32);
@@ -27,6 +29,10 @@ pub fn empty() -> &'static EmptyPosting {
 pub struct EmptyPosting;
 
 impl Posting for EmptyPosting {
+    fn is_empty(&self) -> bool {
+        true
+    }
+
     fn len(&self) -> usize {
         0
     }
@@ -93,6 +99,10 @@ impl<'a> DocItem for DocIdAndPosItem<'a> {
 }
 
 impl Posting for PostingImpl {
+    fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
     fn len(&self) -> usize {
         self.docs.len()
     }

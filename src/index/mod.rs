@@ -9,6 +9,7 @@ pub mod posting_lists;
 
 type IndexingResult<T> = Result<T, error::IndexingError>;
 
+#[derive(Default)]
 pub struct Index<'a> {
     doc_id: u32,
     postings: HashMap<String, posting_lists::PostingImpl>,
@@ -16,14 +17,6 @@ pub struct Index<'a> {
 }
 
 impl<'a> Index<'a> {
-    pub fn new() -> Index<'a> {
-        Index {
-            doc_id: 0,
-            postings: HashMap::new(),
-            mappings: HashMap::new(),
-        }
-    }
-
     pub fn set_mapping<T: 'a>(&mut self, field: String, tokenizer: T) -> IndexingResult<()>
     where
         T: Tokenizer,
@@ -39,18 +32,18 @@ impl<'a> Index<'a> {
         }
     }
 
-    pub fn add_doc(&mut self, doc: document::Document) -> IndexingResult<()> {
+    pub fn add_doc(&mut self, doc: &document::Document) -> IndexingResult<()> {
         for field in doc.fields() {
             if !self.mappings.contains_key(field.field) {
                 return Err(error::IndexingError::MissingFieldMapping {
                     field: field.field.to_string(),
                 });
             }
-            let tokenizer = self.mappings.get(field.field).unwrap();
+            let tokenizer = &self.mappings[field.field];
             for token in tokenizer.tokenize(field.value) {
                 let posting = self.postings
                     .entry(format!("{}:{}", field.field, token.token))
-                    .or_insert(posting_lists::new());
+                    .or_insert_with(posting_lists::new);
                 posting.add_token(self.doc_id, token.position);
             }
         }
@@ -62,7 +55,7 @@ impl<'a> Index<'a> {
         if !self.postings.contains_key(field) {
             Box::new(posting_lists::empty())
         } else {
-            Box::new(self.postings.get(field).unwrap())
+            Box::new(&self.postings[field])
         }
     }
 }
@@ -74,7 +67,7 @@ mod tests {
 
     #[test]
     fn should_return_empty_posting_on_unknown_field() {
-        let index = Index::new();
+        let index: Index = Default::default();
 
         let posting = index.get_postings_list("field1");
         assert_eq!(posting.len(), 0);
@@ -88,7 +81,7 @@ mod tests {
 
     #[test]
     fn should_fail_when_setting_two_times_a_mapping_field() {
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
 
         let set_mapping_res = index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
         assert_eq!(set_mapping_res.is_ok(), true);
@@ -99,7 +92,7 @@ mod tests {
 
     #[test]
     fn should_fail_when_adding_doc_with_missing_field_mapping() {
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
 
         let set_mapping_res = index.set_mapping(String::from("field1"), WhiteSpaceTokenizer::new());
         assert_eq!(set_mapping_res.is_ok(), true);
@@ -111,18 +104,18 @@ mod tests {
     /// Should index 2 docs over two postings list
     #[test]
     fn should_create_some_postings_list() {
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = document::Document::new();
+        let mut doc: document::Document = Default::default();
         doc.add_field("field1", "aaa bbb aaa");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = document::Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         assert_eq!(index.postings.len(), 2);
         for (key, posting) in index.postings.iter() {

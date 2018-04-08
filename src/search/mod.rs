@@ -72,7 +72,7 @@ where
         let mut min_doc_id = MAX;
 
         // init the docs iteration
-        for doc_iterator in self.docs.iter_mut() {
+        for doc_iterator in &mut self.docs {
             match doc_iterator.next() {
                 None => return None,
                 Some(item) => {
@@ -199,22 +199,22 @@ mod tests {
     #[test]
     fn test_step_on_matching_doc_with_iter_docs() {
         // create index
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         // get the postings lists for aaa and ccc
         let postings = ["aaa", "ccc"]
@@ -240,22 +240,22 @@ mod tests {
     #[test]
     fn test_step_on_matching_doc_with_iter_docs_pos() {
         // create index
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa bbb ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         // get the postings lists for aaa and ccc
         let postings = ["aaa", "ccc"]
@@ -289,26 +289,26 @@ mod tests {
     #[test]
     fn test_step_on_matching_doc() {
         // create index
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb ccc");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         // get the postings lists for aaa and bbb
         let postings = ["aaa", "bbb"]
@@ -334,34 +334,34 @@ mod tests {
     #[test]
     fn test_step_on_matching_doc_advance() {
         // create index
-        let mut index = Index::new();
+        let mut index: Index = Default::default();
         index
             .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
             .unwrap();
 
-        let mut doc = Document::new();
+        let mut doc: Document = Default::default();
         doc.add_field("field1", "aaa");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "aaa");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
-        let mut doc = Document::new();
+        doc.clear();
         doc.add_field("field1", "bbb");
-        index.add_doc(doc).unwrap();
+        index.add_doc(&doc).unwrap();
 
         // get the postings lists for aaa and bbb
         let postings = ["aaa", "bbb"]
