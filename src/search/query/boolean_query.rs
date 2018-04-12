@@ -1,3 +1,20 @@
+//! Match a document that fulfils a boolean combination of queries
+//!
+//! The `must` clause defines queries that must match a document. It is added thanks to
+//! [`BooleanQuery::must`] method.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use ::iryfful::search::query::boolean_query::BooleanQuery;
+//! use ::iryfful::search::query::phrase_query::PhraseQuery;
+//!
+//! // This can match a document with "aaa bbb eee ccc ddd" but not "aaa bbb ccc eee ddd" because
+//! // the second query is not fulfilled.
+//! let mut bq: BooleanQuery = Default::default();
+//! bq.must(PhraseQuery::new("field1", vec!["aaa", "bbb"]));
+//! bq.must(PhraseQuery::new("field1", vec!["ccc", "ddd"]));
+//! ```
 use super::Query;
 use super::SearchHit;
 use search::IndexSearcher;
@@ -8,6 +25,7 @@ pub struct BooleanQuery<'bq> {
 }
 
 impl<'bq> BooleanQuery<'bq> {
+    /// Adds a query that must be matched
     pub fn must<T>(&mut self, query: T)
     where
         T: Query + 'bq,

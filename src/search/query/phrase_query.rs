@@ -1,3 +1,20 @@
+//! Match a document that have terms juxtaposing within a configurable slop in any order.
+//!
+//! Set the slop to a value greater or equal to 1 in order to configure the maximum distance
+//! between two terms.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use ::iryfful::search::query::phrase_query::PhraseQuery;
+//!
+//! // match the phrase "aaa bbb" occurring within the field "field1", with at most a distance of 2
+//! // inbetween.
+//! // this would match "something aaa bbb other" and "something aaa ccc bbb other" but not "aaa
+//! // ccc ddd bbb"
+//! let mut pq = PhraseQuery::new("field1", vec!["aaa", "bbb"]);
+//! pq.set_slop(2);
+//! ```
 use super::Query;
 use index::posting_lists::DocIdAndPosItem;
 use search::IndexSearcher;
@@ -11,6 +28,8 @@ pub struct PhraseQuery<'a> {
 }
 
 impl<'a> PhraseQuery<'a> {
+    /// Creates a new phrase query for specified sequence of terms. The order of terms is not
+    /// relevant while matching, but is while scoring.
     pub fn new(field: &'a str, terms: Vec<&'a str>) -> PhraseQuery<'a> {
         PhraseQuery {
             field,
@@ -19,6 +38,7 @@ impl<'a> PhraseQuery<'a> {
         }
     }
 
+    /// Defines the maximum distance separating two terms.
     pub fn set_slop(&mut self, slop: u8) {
         self.slop = slop;
     }

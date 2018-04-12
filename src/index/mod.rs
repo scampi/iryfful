@@ -1,3 +1,6 @@
+//! Indexing logic of documents.
+//!
+//! The [`Index`] type provides an API for adding documents to an index and interacting with it.
 use index::posting_lists::Posting;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -17,6 +20,12 @@ pub struct Index<'a> {
 }
 
 impl<'a> Index<'a> {
+    /// Sets the tokenizer to be used on content of the specified field.
+    ///
+    /// # Errors
+    ///
+    /// An [`error::IndexingError::MappingFieldAlreadyExists`] error is returned if a tokenizer is
+    /// already set for the specified field.
     pub fn set_mapping<T: 'a>(&mut self, field: String, tokenizer: T) -> IndexingResult<()>
     where
         T: Tokenizer,
@@ -32,6 +41,12 @@ impl<'a> Index<'a> {
         }
     }
 
+    /// Adds the given document to the index.
+    ///
+    /// # Errors
+    ///
+    /// An [`error::IndexingError::MissingFieldMapping`] error is returned if the document contains
+    /// a field that has no mapping defined.
     pub fn add_doc(&mut self, doc: &document::Document) -> IndexingResult<()> {
         for field in doc.fields() {
             if !self.mappings.contains_key(field.field) {
@@ -51,6 +66,10 @@ impl<'a> Index<'a> {
         Ok(())
     }
 
+    /// Returns the posting lists associated with the given field.
+    ///
+    /// If the index does not have a posting lists for that field, then an [`posting_lists::empty`]
+    /// posting is returned.
     pub fn get_postings_list(&self, field: &str) -> Box<&Posting> {
         if !self.postings.contains_key(field) {
             Box::new(posting_lists::empty())

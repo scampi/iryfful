@@ -1,3 +1,13 @@
+//! Match a document having at least one given term.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use ::iryfful::search::query::term_query::TermQuery;
+//!
+//! // match term "aaa" occurring within the field "field1"
+//! let tq = TermQuery::new("field1", "aaa");
+//! ```
 use super::Query;
 use index::posting_lists::DocItem;
 use search::IndexSearcher;
@@ -10,6 +20,7 @@ pub struct TermQuery<'a> {
 }
 
 impl<'a> TermQuery<'a> {
+    /// Creates a new term query for the specified term.
     pub fn new(field: &'a str, term: &'a str) -> TermQuery<'a> {
         TermQuery { field, term }
     }

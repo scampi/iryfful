@@ -1,3 +1,4 @@
+//! A [`Tokenizer`] that splits a string using [`String::split_whitespace`].
 use super::Tokenizer;
 use super::filter::TokenFilter;
 
@@ -32,7 +33,6 @@ mod tests {
     use super::*;
     use expectest::prelude::*;
     use tokenizer::Token;
-    use tokenizer::filter::*;
 
     #[test]
     fn splits_on_whitespace() {

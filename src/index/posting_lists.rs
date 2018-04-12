@@ -1,18 +1,27 @@
+//! Logic for creating a posting lists and interacting with it.
 use std::fmt::Debug;
 use std::iter;
 
+/// The `Posting` type allows to add tokens to the index and then iterating over them
 pub trait Posting {
+    /// Returns `true` if there is no token in this posting lists.
     fn is_empty(&self) -> bool;
 
+    /// Returns the number of documents this posting lists contains.
     fn len(&self) -> usize;
 
+    /// Adds a token to this posting list with the given document ID occurring at position within
+    /// that document.
     fn add_token(&mut self, doc_id: u32, position: u32);
 
+    /// Creates an iterator over [`DocIdItem`]s.
     fn iter_docs<'a>(&'a self) -> Box<Iterator<Item = DocIdItem> + 'a>;
 
+    /// Creates an iterator over [`DocIdAndPosItem`]s.
     fn iter_docs_pos<'a>(&'a self) -> Box<Iterator<Item = DocIdAndPosItem<'a>> + 'a>;
 }
 
+/// Creates a new [`Posting`] instance.
 pub fn new() -> PostingImpl {
     PostingImpl {
         docs: Vec::new(),
@@ -22,6 +31,7 @@ pub fn new() -> PostingImpl {
 
 static EMPTY: EmptyPosting = EmptyPosting {};
 
+/// Returns a [`Posting`] instance which is always empty.
 pub fn empty() -> &'static EmptyPosting {
     &EMPTY
 }
@@ -50,20 +60,20 @@ impl Posting for EmptyPosting {
 
 #[derive(Debug)]
 pub struct PostingImpl {
-    docs: Vec<DocPosting>,
+    docs: Vec<DocEntry>,
     positions: Vec<u32>,
 }
 
 #[derive(Debug)]
-struct DocPosting {
+struct DocEntry {
     doc_id: u32,
     freqs: u32,
     positions_offset: u32,
 }
 
-impl DocPosting {
-    fn new(doc_id: u32, positions_offset: u32) -> DocPosting {
-        DocPosting {
+impl DocEntry {
+    fn new(doc_id: u32, positions_offset: u32) -> DocEntry {
+        DocEntry {
             doc_id,
             freqs: 0,
             positions_offset,
@@ -71,10 +81,13 @@ impl DocPosting {
     }
 }
 
+/// Interface for any [`Iterator`]'s item which iterates over a list of documents.
 pub trait DocItem: Debug {
+    /// Returns the document ID of this item.
     fn get_doc_id(&self) -> u32;
 }
 
+/// A [`DocItem`] which provides only the ID of a document.
 #[derive(Debug)]
 pub struct DocIdItem {
     doc_id: u32,
@@ -86,6 +99,7 @@ impl DocItem for DocIdItem {
     }
 }
 
+/// A [`DocItem`] which provides in addition to a document's ID the positions of each token's occurrence.
 #[derive(Debug)]
 pub struct DocIdAndPosItem<'a> {
     doc_id: u32,
@@ -116,7 +130,7 @@ impl Posting for PostingImpl {
 
         if create_doc_posting {
             self.docs
-                .push(DocPosting::new(doc_id, self.positions.len() as u32));
+                .push(DocEntry::new(doc_id, self.positions.len() as u32));
         }
 
         let doc_posting = self.docs
