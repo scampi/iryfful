@@ -123,11 +123,7 @@ impl<'pq> Query for PhraseQuery<'pq> {
             None
         };
 
-        Box::new(
-            index_search
-                .step_on_matching_doc(postings)
-                .filter_map(on_match),
-        )
+        Box::new(index_search.conjunction(postings).filter_map(on_match))
     }
 }
 

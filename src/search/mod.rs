@@ -12,7 +12,7 @@ pub mod query;
 /// A SearchHit references a document that is a match for a query.
 ///
 /// This type implements [`DocItem`] so that a list of search hits can be seen as another posting
-/// lists, allowing it to be used with methods such as [`IndexSearcher::step_on_matching_doc`].
+/// lists, allowing it to be used with methods such as [`IndexSearcher::conjunction`].
 #[derive(Debug, PartialEq)]
 pub struct SearchHit {
     doc_id: u32,
@@ -102,16 +102,30 @@ impl<'q, 'a: 'q> IndexSearcher<'a> {
 
     /// Iterates over a list of [`Iterator`]s over [`DocItem`]s and returns another Iterator which
     /// items are those which [`DocItem::get_doc_id`] match.
-    fn step_on_matching_doc<I, T>(&self, docs: Vec<Box<I>>) -> MatchingDocIterator<I, T>
+    fn conjunction<I, T>(&self, docs: Vec<Box<I>>) -> ConjunctionDocIterator<I, T>
     where
         I: Iterator<Item = T>,
         T: DocItem,
     {
-        MatchingDocIterator { docs }
+        ConjunctionDocIterator { docs }
+    }
+
+    /// Iterates over a list of [`Iterator`]s over [`DocItem`]s and returns another Iterator which
+    /// items are those from docs, ordered on [`DocItem::get_doc_id`].
+    fn disjunction<I, T>(&self, docs: Vec<Box<I>>) -> DisjunctionDocIterator<I, T>
+    where
+        I: Iterator<Item = T>,
+        T: DocItem,
+    {
+        let len = docs.len();
+        DisjunctionDocIterator {
+            docs,
+            current_docs: Vec::with_capacity(len),
+        }
     }
 }
 
-struct MatchingDocIterator<I, T>
+struct ConjunctionDocIterator<I, T>
 where
     I: Iterator<Item = T>,
     T: DocItem,
@@ -119,7 +133,7 @@ where
     docs: Vec<Box<I>>,
 }
 
-impl<I, T> Iterator for MatchingDocIterator<I, T>
+impl<I, T> Iterator for ConjunctionDocIterator<I, T>
 where
     I: Iterator<Item = T>,
     T: DocItem,
@@ -170,6 +184,65 @@ where
             // it's a match!
             return Some((max_doc_id, current_docs));
         }
+    }
+}
+
+struct DisjunctionDocIterator<I, T>
+where
+    I: Iterator<Item = T>,
+    T: DocItem,
+{
+    docs: Vec<Box<I>>,
+    current_docs: Vec<Option<T>>,
+}
+
+impl<I, T> Iterator for DisjunctionDocIterator<I, T>
+where
+    I: Iterator<Item = T>,
+    T: DocItem,
+{
+    type Item = SearchHit;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // init
+        if self.current_docs.is_empty() {
+            for doc_iterator in &mut self.docs {
+                self.current_docs.push(doc_iterator.next());
+            }
+        }
+
+        // check if the iterators were exhausted
+        if self.current_docs
+            .iter()
+            .fold(true, |acc, doc| acc && doc.is_none())
+        {
+            return None;
+        }
+
+        // find the doc with smallest id
+        let (min_ith, min_doc_id, _) = self.current_docs.iter().fold(
+            (vec![], MAX, 0),
+            |mut acc, doc| {
+                if let Some(item) = doc {
+                    if item.get_doc_id() == acc.1 {
+                        acc.0.push(acc.2);
+                    } else if item.get_doc_id() < acc.1 {
+                        acc.0.clear();
+                        acc.0.push(acc.2);
+                        acc.1 = item.get_doc_id();
+                    }
+                }
+                acc.2 += 1;
+                acc
+            },
+        );
+
+        // advance all iterators that have the same min_doc_id
+        min_ith.into_iter().for_each(|ith| {
+            let _ = mem::replace(&mut self.current_docs[ith], self.docs[ith].next());
+        });
+
+        Some(SearchHit::new(min_doc_id))
     }
 }
 
@@ -259,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_step_on_matching_doc_with_iter_docs() {
+    fn test_conjunction_with_iter_docs() {
         // create index
         let mut index: Index = Default::default();
         index
@@ -290,9 +363,7 @@ mod tests {
             })
             .collect();
         let searcher = IndexSearcher::new(&index);
-        let mut iter = searcher
-            .step_on_matching_doc(postings)
-            .map(|(doc_id, _)| doc_id);
+        let mut iter = searcher.conjunction(postings).map(|(doc_id, _)| doc_id);
 
         assert_eq!(iter.next().unwrap(), 0);
         assert_eq!(iter.next().unwrap(), 2);
@@ -300,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn test_step_on_matching_doc_with_iter_docs_pos() {
+    fn test_conjunction_with_iter_docs_pos() {
         // create index
         let mut index: Index = Default::default();
         index
@@ -342,14 +413,14 @@ mod tests {
             }
             return if diff == 1 { Some(doc_id) } else { None };
         };
-        let mut iter = searcher.step_on_matching_doc(postings).filter_map(on_match);
+        let mut iter = searcher.conjunction(postings).filter_map(on_match);
 
         assert_eq!(iter.next().unwrap(), 2);
         assert_eq!(iter.next(), None);
     }
 
     #[test]
-    fn test_step_on_matching_doc() {
+    fn test_conjunction() {
         // create index
         let mut index: Index = Default::default();
         index
@@ -384,9 +455,7 @@ mod tests {
             })
             .collect();
         let searcher = IndexSearcher::new(&index);
-        let mut iter = searcher
-            .step_on_matching_doc(postings)
-            .map(|(doc_id, _)| doc_id);
+        let mut iter = searcher.conjunction(postings).map(|(doc_id, _)| doc_id);
 
         assert_eq!(iter.next().unwrap(), 1);
         assert_eq!(iter.next().unwrap(), 3);
@@ -394,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_step_on_matching_doc_advance() {
+    fn test_conjunction_advance() {
         // create index
         let mut index: Index = Default::default();
         index
@@ -437,12 +506,99 @@ mod tests {
             })
             .collect();
         let searcher = IndexSearcher::new(&index);
-        let mut iter = searcher
-            .step_on_matching_doc(postings)
-            .map(|(doc_id, _)| doc_id);
+        let mut iter = searcher.conjunction(postings).map(|(doc_id, _)| doc_id);
 
         assert_eq!(iter.next().unwrap(), 2);
         assert_eq!(iter.next().unwrap(), 3);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_disjunction1() {
+        // create index
+        let mut index: Index = Default::default();
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
+
+        let mut doc: Document = Default::default();
+        doc.add_field("field1", "aaa ccc");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "aaa bbb");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "bbb ccc");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "aaa ddd");
+        index.add_doc(&doc).unwrap();
+
+        // get the postings lists for bbb and ccc
+        let postings = ["bbb", "ccc"]
+            .iter()
+            .map(|term| {
+                Box::new(
+                    index
+                        .get_postings_list(&format!("field1:{}", term))
+                        .iter_docs(),
+                )
+            })
+            .collect();
+        let searcher = IndexSearcher::new(&index);
+        let mut iter = searcher.disjunction(postings);
+
+        assert_eq!(iter.next().unwrap().get_doc_id(), 0);
+        assert_eq!(iter.next().unwrap().get_doc_id(), 1);
+        assert_eq!(iter.next().unwrap().get_doc_id(), 2);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_disjunction2() {
+        // create index
+        let mut index: Index = Default::default();
+        index
+            .set_mapping(String::from("field1"), WhiteSpaceTokenizer::new())
+            .unwrap();
+
+        let mut doc: Document = Default::default();
+        doc.add_field("field1", "aaa bbb ccc");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "aaa");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "bbb");
+        index.add_doc(&doc).unwrap();
+
+        doc.clear();
+        doc.add_field("field1", "ccc");
+        index.add_doc(&doc).unwrap();
+
+        // get the postings lists for aaa, bbb and ccc
+        let postings = ["aaa", "bbb", "ccc"]
+            .iter()
+            .map(|term| {
+                Box::new(
+                    index
+                        .get_postings_list(&format!("field1:{}", term))
+                        .iter_docs(),
+                )
+            })
+            .collect();
+        let searcher = IndexSearcher::new(&index);
+        let mut iter = searcher.disjunction(postings);
+
+        assert_eq!(iter.next().unwrap().get_doc_id(), 0);
+        assert_eq!(iter.next().unwrap().get_doc_id(), 1);
+        assert_eq!(iter.next().unwrap().get_doc_id(), 2);
+        assert_eq!(iter.next().unwrap().get_doc_id(), 3);
         assert_eq!(iter.next(), None);
     }
 }
